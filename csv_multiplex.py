@@ -135,7 +135,6 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
             return [''.join(l[i:i+n]) for i in range(0, len(l), n)]
         _, id = name.split('-')
         levels = chunks(list(id), 2)
-        print 'levels:', levels
         levels.insert(0, self.id_field)
         if self.output_dir:
             levels.insert(0, self.output_dir)
@@ -143,7 +142,7 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
         if os.path.exists(directory) and not os.path.isdir(directory):
             raise Exception('Path {} already exists but is not a directory'.format(directory))
         if not os.path.exists(directory):
-            logging.info('Creating invoice image directory: {}'.format(directory))
+            logging.debug('Creating invoice image directory: {}'.format(directory))
             os.makedirs(directory)
         return os.path.join(directory, name)
 
@@ -155,7 +154,7 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
 
     def create_writer(self, output_path):
         actual_output_path = '.'.join([output_path, 'xml'])
-        logging.info('Creating output file (xml): {}'.format(actual_output_path))
+        logging.debug('Creating output file (xml): {}'.format(actual_output_path))
         f = open(actual_output_path, 'w')
         def writer(data):
             element = ET.Element(self.element_name)
@@ -222,7 +221,8 @@ def main():
             args['filename'], 
             args['multiplex_on'], 
             field_to_filesystem=args.get('field_to_filesystem'), 
-            id_field=args.get('id_field')
+            id_field=args.get('id_field'),
+            element_name=args.get('element_name')
             )
     multi.run()
 
