@@ -87,7 +87,12 @@ class MultiplexCsvData(object):
         for data in self.reader:
             self.process(data)
         for f,_ in self.output_mapping.itervalues():
+            self.file_epilogue(f)
             f.close()
+
+    def file_epilogue(self, f):
+        ## override in subclass when extra behavior is required at the close of a file
+        pass 
 
 class MultiplexCsvDataToCsv(MultiplexCsvData):
     def create_writer(self, output_path):
@@ -113,7 +118,7 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
         logging.info('field_to_filesystem: {}'.format(self.field_to_filesystem))
         self.element_name = kwargs.get('element_name', 'element')
         self.id_field = kwargs.get('id_field')
-        self.id_index = self.headers.index(self.id_field)
+        self.id_index = None if not self.id_field else self.headers.index(self.id_field)
 
     # Danger, danger Will Robinson!!!!!!
     # The naive way of doing this will likely cause problems.
@@ -160,10 +165,14 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
         output_path = self.create_output_path(dispatch_value)
         f, writer = self.create_writer(output_path)
         f.write('<?xml version="1.0"?>\n')
+        f.write('<invoices>\n')
         return f, writer
 
     def write_row(self, writer, data):
         writer(data)
+
+    def file_epilogue(self, f):
+        f.write('</invoices>\n')
 
 def parse_args():
     parser = argparse.ArgumentParser()
