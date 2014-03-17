@@ -2,6 +2,7 @@ import argparse
 import csv
 import logging
 import os
+import sys
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',level=logging.INFO)
@@ -84,8 +85,12 @@ class MultiplexCsvData(object):
         self.write_row(writer, data)
 
     def run(self):
+        items_processed = 0
         for data in self.reader:
             self.process(data)
+            items_processed += 1
+            if items_processed % 10000 == 0:
+                logging.info('Processed {} rows.'.format(items_processed))
         for f,_ in self.output_mapping.itervalues():
             self.file_epilogue(f)
             f.close()
@@ -126,8 +131,11 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
     # which will clobber you on many (if not most) platforms. Very bad karma.
 
     def create_nested_path(self, name):
+        def chunks(l, n):
+            return [''.join(l[i:i+n]) for i in range(0, len(l), n)]
         _, id = name.split('-')
-        levels = list(id)
+        levels = chunks(list(id), 2)
+        print 'levels:', levels
         levels.insert(0, self.id_field)
         if self.output_dir:
             levels.insert(0, self.output_dir)
@@ -176,23 +184,26 @@ class MultiplexCsvDataToXml(MultiplexCsvData):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--filename', help='filename', required=True)
+    parser.add_argument('-f', '--filename', help='name of file to be procressed', required=True)
     parser.add_argument('-m', '--mode', help='output mode ("xml" or "csv")', required=True, default='csv')
     parser.add_argument('-s', '--multiplex-on', help='name of column to multiplex on', required=True)
     parser.add_argument('-i', '--inputdir', help='input directory', required=False)
     parser.add_argument('-o', '--outputdir', help='output directory', required=False)
-    parser.add_argument('-x', '--field-to-filesystem', help='field to be written to filesystem', required=False)
-    parser.add_argument('-e', '--element-name', help='element name for each row of input (xml only)', required=False)
-    parser.add_argument('-d', '--id-field', help='field to use as an id value for the row (xml only)', required=False)
+    parser.add_argument('-x', '--field-to-filesystem', help='field to be written to filesystem (xml mode only)', required=False)
+    parser.add_argument('-e', '--element-name', help='element name for each row of input (xml mode only)', required=False)
+    parser.add_argument('-d', '--id-field', help='field to use as an id value for the row (xml mode only)', required=False)
     return vars(parser.parse_args())
 
 def verify_args(args):
     valid_modes = ['xml', 'csv']
     if args.get('mode') not in valid_modes:
-        print 'Invalid mode = {}. Must be one of {}. Exiting'.format(args.get('mode'), valid_modes)
+        print 'Invalid mode (-m) = {}. Must be one of {}. Exiting'.format(args.get('mode'), valid_modes)
         sys.exit(1)
     if args.get('field_to_filesystem') and args.get('mode') != 'xml':
-        print 'Invalid combination. Specifying "field-to-filesystem" only valid in "xml" mode. Exiting.'
+        print 'Invalid argument. Specifying "field-to-filesystem" (-x) only valid in "xml" mode. Exiting.'
+        sys.exit(1)
+    if args.get('id_field') and args.get('mode') != 'xml':
+        print 'Invalid argument. Specifying "id-field" (-d) only valid in "xml" mode. Exiting.'
         sys.exit(1)
     if args.get('element_name') and args.get('mode') != 'xml':
         print 'Invalid combination. Specifying "element-name only valid in "xml" mode. Exiting.'
@@ -200,6 +211,7 @@ def verify_args(args):
 
 def main():
     args = parse_args()
+    verify_args(args)
     logging.info('args:')
     for k, v in args.iteritems():
         logging.info('   {}: {}'.format(k, v))
